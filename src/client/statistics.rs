@@ -58,7 +58,6 @@ impl Client {
 		let statistics: Statistics = serde_json::from_str(&statistics_content)
 			.map_err(|deserialize_error| Error::new_from_message(&deserialize_error.to_string()))?;
 
-		println!("{:?}", statistics);
 		return Ok(statistics);
 	}
 }

@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use crate::errors::Error;
 
 pub mod statistics;
+pub mod regions;
 
 const BUNNY_STORAGE_API_ROOT: &str = "https://api.bunny.net";
-
 const ENV_BUNNY_STORAGE_API_KEY_NAME: &str = "BUNNYSTORAGE_API_KEY";
 
 
