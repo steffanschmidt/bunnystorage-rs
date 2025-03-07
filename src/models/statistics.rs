@@ -13,35 +13,35 @@ pub struct Statistics {
 	// The median response time origin
 	pub average_origin_response_time: i32,
 	// The constructed origin response time chart data
-	pub origin_response_time_chart: BTreeMap<String, i64>,
+	pub origin_response_time_chart: BTreeMap<String, f64>,
 	// The total requests served by the response in the given time range
 	pub total_requests_served: i64,
 	// The average cache hit rate in the response in the given time range
 	pub cache_hit_rate: f64,
 	// The constructed bandwdidth used chart data
-	pub bandwidth_used_chart: BTreeMap<String, i64>,
+	pub bandwidth_used_chart: BTreeMap<String, f64>,
 	// The constructed cached bandwidth used chart data
-	pub bandwidth_cached_chart: BTreeMap<String, i64>,
+	pub bandwidth_cached_chart: BTreeMap<String, f64>,
 	// The constructed cache hit rate chart data
-	pub cache_hit_rate_chart: BTreeMap<String, i64>,
+	pub cache_hit_rate_chart: BTreeMap<String, f64>,
 	// The constructed requests served chart data
-	pub requests_served_chart: BTreeMap<String, i64>,
+	pub requests_served_chart: BTreeMap<String, f64>,
 	// The constructed uncached requests served chart data
-	pub pull_requests_pulled_chart: BTreeMap<String, i64>,
+	pub pull_requests_pulled_chart: BTreeMap<String, f64>,
 	// The constructed origin shield bandwdidth used chart data
-	pub origin_shield_bandwidth_used_chart: BTreeMap<String, i64>,
+	pub origin_shield_bandwidth_used_chart: BTreeMap<String, f64>,
 	// The constructed origin shield internal bandwdidth used chart data
-	pub origin_shield_internal_bandwidth_used_chart: BTreeMap<String, i64>,
+	pub origin_shield_internal_bandwidth_used_chart: BTreeMap<String, f64>,
 	// The constructed origin traffic used chart data
-	pub origin_traffic_chart: BTreeMap<String, i64>,
+	pub origin_traffic_chart: BTreeMap<String, f64>,
 	// The constructed user balance history chart data
-	pub user_balance_history_chart: BTreeMap<String, i64>,
+	pub user_balance_history_chart: BTreeMap<String, f64>,
 	// The geo traffic distribution data
-	pub geo_traffic_distribution: BTreeMap<String, i64>,
+	pub geo_traffic_distribution: BTreeMap<String, f64>,
 	// The constructed 3XX error responses chart data
-	pub error_3xx_chart: BTreeMap<String, i64>,
+	pub error_3xx_chart: BTreeMap<String, f64>,
 	// The constructed 4XX error responses chart data
-	pub error_4xx_chart: BTreeMap<String, i64>,
+	pub error_4xx_chart: BTreeMap<String, f64>,
 	// The constructed 5XX error responses chart data
-	pub error_5xx_chart: BTreeMap<String, i64>,
+	pub error_5xx_chart: BTreeMap<String, f64>,
 }

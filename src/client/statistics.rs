@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 use crate::{errors::Error, models::statistics::Statistics};
-use super::{Client, BUNNY_STORAGE_API_ROOT};
+use super::{BunnyCDNClient, BUNNY_STORAGE_API_ROOT};
 
 // See https://api.bunny.net/statistics
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub struct StatisticsParameters {
 	pub hourly: Option<bool>,
 }
 
-fn prepare_statistics_params(optional_params: &Option<StatisticsParameters>) -> HashMap<&str, String> {
+fn prepare_statistics_params(optional_params: Option<&StatisticsParameters>) -> HashMap<&str, String> {
 	let mut params_map: HashMap<&str, String> = HashMap::new();
 	match optional_params {
 		None => return params_map,
@@ -49,16 +49,17 @@ fn prepare_statistics_params(optional_params: &Option<StatisticsParameters>) -> 
 	}
 }
 
-impl Client {
+impl BunnyCDNClient {
 	
-	pub async fn get_statistics(&self, params: &Option<StatisticsParameters>) -> Result<Statistics, Error> {
+	pub async fn get_statistics(&self, params: Option<&StatisticsParameters>) -> Result<Statistics, Error> {
 		let statistics_url: String = format!("{}/statistics", BUNNY_STORAGE_API_ROOT.to_string());
 		let params_map = prepare_statistics_params(params);
-		let statistics_content = self.get(&statistics_url, Some(&params_map)).await?;
-		let statistics: Statistics = serde_json::from_str(&statistics_content)
-			.map_err(|deserialize_error| Error::new_from_message(&deserialize_error.to_string()))?;
-
-		return Ok(statistics);
+		let statistics_response = self.get(
+			&statistics_url,
+			&self.config.api_key,
+			Some(&params_map)).await?;
+		return serde_json::from_str(&statistics_response.raw_data)
+			.map_err(|parse_error| Error::new_from_message(&parse_error.to_string()));
 	}
 }
 
@@ -69,10 +70,11 @@ mod statistics_tests {
 
 	#[tokio::test]
 	async fn test_get_statistics() {
-		let client = Client::new_from_env();
-		let statistics_result = client.get_statistics(&None).await;
+		let client_result = BunnyCDNClient::new_from_env();
+		assert!(client_result.is_ok());
+		let statistics_result = client_result.unwrap().get_statistics(None).await;
 		if let Err(statistics_error) = &statistics_result {
-			println!("Failed Getting Statistic - Error {}", statistics_error.message);
+			println!("Failed Getting Statistic - Error {}", statistics_error.to_string());
 		}
 		assert!(statistics_result.is_ok());
 	}

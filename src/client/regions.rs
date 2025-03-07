@@ -1,19 +1,19 @@
 use crate::{errors::Error, models::region::Region};
 
-use super::{Client, BUNNY_STORAGE_API_ROOT};
+use super::{BunnyCDNClient, BUNNY_STORAGE_API_ROOT};
 
 
-impl Client {
+impl BunnyCDNClient {
 
 	pub async fn get_regions(&self) -> Result<Vec<Region>, Error> {
 		let regions_url = format!("{}/region", BUNNY_STORAGE_API_ROOT);
-		let regions_content = self.get(&regions_url, None)
-			.await?;
-
-		let regions: Vec<Region> = serde_json::from_str(&regions_content)
-			.map_err(|regions_parse_err| Error::new_from_message(&regions_parse_err.to_string()))?;
-
-		return Ok(regions);
+		let regions_response = self.get(
+			&regions_url, 
+			&self.config.api_key, 
+			None
+		).await?;
+		return serde_json::from_str(&regions_response.raw_data)
+			.map_err(|parse_error| Error::new_from_message(&parse_error.to_string()));
 	}
 }
 
@@ -21,16 +21,14 @@ impl Client {
 mod regions_test {
 	use super::*;
 
-
-
 	#[tokio::test]
 	async fn test_get_regions() {
-		let client = Client::new_from_env();
-		let regions_result = client.get_regions().await;
+		let client_result = BunnyCDNClient::new_from_env();
+		assert!(client_result.is_ok());
+		let regions_result = client_result.unwrap().get_regions().await;
 		if let Err(regions_error) = &regions_result {
-			println!("Failed Retrieving Regions - Error {}", regions_error.message);
+			println!("Failed Retrieving Regions - Error {}", regions_error.to_string());
 		}
 		assert!(regions_result.is_ok());
-
 	}
 }
