@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use reqwest::{Body, StatusCode};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -16,6 +17,24 @@ const ENV_BUNNY_STORAGE_READ_PASSWORD_NAME: &str = "BUNNYSTORAGE_READ_PASSWORD";
 const ENV_BUNNY_STORAGE_WRITE_PASSWORD_NAME: &str = "BUNNYSTORAGE_WRITE_PASSWORD";
 const ENV_BUNNY_STORAGE_ZONE_NAME_NAME: &str = "BUNNYSTORAGE_STORAGE_ZONE_NAME";
 const ENV_BUNNY_STORAGE_ENDPOINT_NAME_NAME: &str = "BUNNYSTORAGE_ENDPOINT_NAME";
+
+const ACCESS_KEY_HEADER_NAME: &str = "AccessKey";
+const CONTENT_TYPE_HEADER_NAME: &str = "Content-Type";
+
+// Headers
+pub enum ContentType {
+	ApplicationJson,
+	ApplicationOctetStream,
+}
+
+impl ContentType {
+	pub fn name(&self) -> &str {
+		match self {
+			ContentType::ApplicationJson => "application/json",
+			ContentType::ApplicationOctetStream => "application/octet-stream",
+		}
+	}
+}
 
 /*
 
@@ -143,9 +162,14 @@ impl BunnyCDNPageMeta {
 	}
 }
 
+
 pub struct BunnyCDNGetResponse {
 	pub raw_data: String,
 	pub page_meta: BunnyCDNPageMeta
+}
+
+pub struct BunnyCDNDataOptions {
+	pub headers: Option<HashMap<String, String>>,
 }
 
 impl BunnyCDNClient {
@@ -174,39 +198,106 @@ impl BunnyCDNClient {
 		}
 	}
 
-	async fn get(&self, url: &str, access_key: &str, params: Option<&HashMap<&str, String>>) -> Result<BunnyCDNGetResponse, Error> {
-		let http_response = self.http_client.get(url)
-			.header("AccessKey", access_key)
-			.query(&params)
-			.send()
-			.await
-			.map_err(|http_error| Error::new_from_message(&http_error.to_string()))?;
+	fn check_write_password_ok(&self) -> Result<(), Error> {
+		if let Some(write_password) = &self.config.write_password {
+			if write_password.is_empty() {
+				return Err(Error::new_from_message("Invalid Write Password"));
+			}
+			return Ok(());
+		}
+		return Err(Error::new_from_message("No Write Password"));
+	}
 
-		let http_response_content = http_response.text()
-			.await
-			.map_err(|http_content_error| Error::new_from_message(&http_content_error.to_string()))?;
-
-		// See https://docs.bunny.net/reference/bunnynet-api-overview -> Errors
-		// If this parses then an error occured even the http request was successful
-		let response_error_result: Result<Error, serde_json::Error> = serde_json::from_str(&http_response_content);
+	// See https://docs.bunny.net/reference/bunnynet-api-overview -> Errors
+	// If this parses then an error occured even the http request was successful
+	fn attempt_parse_request_error(&self, response_content: &str) -> Result<(), Error> {
+		let response_error_result: Result<Error, serde_json::Error> = serde_json::from_str(&response_content);
 		if let Ok(response_error) = response_error_result {
 			return Err(response_error);
 		}
+		return Ok(());
+	}
+
+	async fn get(&self, url: &str, access_key: &str, params: Option<&HashMap<&str, String>>) -> Result<BunnyCDNGetResponse, Error> {
+		let http_get_request = self.http_client.get(url)
+			.header(ACCESS_KEY_HEADER_NAME, access_key)
+			.query(&params);
+
+		let http_get_response = http_get_request.send()
+			.await
+			.map_err(|http_get_error| Error::new_from_message(&http_get_error.to_string()))?
+			.error_for_status()
+			.map_err(|http_get_request_error| Error::new_from_message(&http_get_request_error.to_string()))?;
+
+		if http_get_response.status() != StatusCode::OK {
+			return Err(Error::new_from_message(&format!("Failed Get Request - Code {}", http_get_response.status())))
+		}
+		let http_get_response_content = http_get_response.text()
+			.await
+			.map_err(|http_get_content_error| Error::new_from_message(&http_get_content_error.to_string()))?;
+
+		self.attempt_parse_request_error(&http_get_response_content)?;
 		// Attempt parse pagination. This is not present on all endpoints, but it is,
 		// for example, on https://api.bunny.net/apikey.
 		// This handles parsing the information, but it is up to the specific handler
 		// to actually use the data
-		let response_page_meta_result: Result<BunnyCDNPageMeta, serde_json::Error> = serde_json::from_str(&http_response_content);
+		let response_page_meta_result: Result<BunnyCDNPageMeta, serde_json::Error> = serde_json::from_str(&http_get_response_content);
 		let page_meta = match response_page_meta_result {
 			Ok(response_page_meta) => response_page_meta,
 			Err(_) => BunnyCDNPageMeta::new(),
 		};
 		let response = BunnyCDNGetResponse{
-			raw_data: http_response_content,
+			raw_data: http_get_response_content,
 			page_meta,
 		};
 		return Ok(response);
 	}
+
+	async fn put<T: Into<Body>>(&self, url: &str, access_key: &str, data: T, options: Option<&BunnyCDNDataOptions>) -> Result<(), Error> {
+		// Setup the Request
+		let mut http_put_request = self.http_client.put(url)
+			.body(data);
+
+		if let Some(provided_options) = options {
+			if let Some(headers) = &provided_options.headers {
+				for (header_name, header_value) in headers.iter() {
+					http_put_request = http_put_request.header(header_name, header_value);
+				}
+			}
+		}
+		http_put_request = http_put_request.header(ACCESS_KEY_HEADER_NAME, access_key);
+		// Perform the Request
+		let http_put_response = http_put_request.send()
+			.await
+			.map_err(|http_put_response_error| Error::new_from_message(&http_put_response_error.to_string()))?
+			.error_for_status()
+			.map_err(|http_put_request_error| Error::new_from_message(&http_put_request_error.to_string()))?;
+
+		let http_put_response_content = http_put_response.text()
+			.await
+			.map_err(|http_put_content_error| Error::new_from_message(&http_put_content_error.to_string()))?;
+		
+		self.attempt_parse_request_error(&http_put_response_content)?;
+		return Ok(());
+	}
+
+	async fn delete(&self, url: &str, access_key: &str) -> Result<(), Error> {
+		let http_delete_response = self.http_client.delete(url)
+			.header(ACCESS_KEY_HEADER_NAME, access_key)
+			.send()
+			.await
+			.map_err(|http_delete_error| Error::new_from_message(&http_delete_error.to_string()))?
+			.error_for_status()
+			.map_err(|http_delete_request_error| Error::new_from_message(&http_delete_request_error.to_string()))?;
+
+		let http_delete_content = http_delete_response.text()
+			.await
+			.map_err(|http_delete_content_error| Error::new_from_message(&http_delete_content_error.to_string()))?;
+
+		self.attempt_parse_request_error(&http_delete_content)?;
+		return Ok(());
+	}
+
 }
 
 #[cfg(test)]
