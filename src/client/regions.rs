@@ -12,7 +12,7 @@ impl BunnyCDNClient {
 			&self.config.api_key, 
 			None
 		).await?;
-		return serde_json::from_str(&regions_response.raw_data)
+		return serde_json::from_str(&regions_response.body)
 			.map_err(|parse_error| Error::new_from_message(&parse_error.to_string()));
 	}
 }

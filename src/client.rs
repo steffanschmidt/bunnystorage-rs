@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use reqwest::{Body, StatusCode};
+use reqwest::{header::HeaderMap, Body, StatusCode};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -164,7 +164,8 @@ impl BunnyCDNPageMeta {
 
 
 pub struct BunnyCDNGetResponse {
-	pub raw_data: String,
+	pub body: String,
+	pub headers: HeaderMap,
 	pub page_meta: BunnyCDNPageMeta
 }
 
@@ -223,7 +224,7 @@ impl BunnyCDNClient {
 			.header(ACCESS_KEY_HEADER_NAME, access_key)
 			.query(&params);
 
-		let http_get_response = http_get_request.send()
+		let mut http_get_response = http_get_request.send()
 			.await
 			.map_err(|http_get_error| Error::new_from_message(&http_get_error.to_string()))?
 			.error_for_status()
@@ -232,7 +233,8 @@ impl BunnyCDNClient {
 		if http_get_response.status() != StatusCode::OK {
 			return Err(Error::new_from_message(&format!("Failed Get Request - Code {}", http_get_response.status())))
 		}
-		let http_get_response_content = http_get_response.text()
+		let http_get_response_headers = std::mem::take(http_get_response.headers_mut());
+		let http_get_response_content = &http_get_response.text()
 			.await
 			.map_err(|http_get_content_error| Error::new_from_message(&http_get_content_error.to_string()))?;
 
@@ -246,11 +248,12 @@ impl BunnyCDNClient {
 			Ok(response_page_meta) => response_page_meta,
 			Err(_) => BunnyCDNPageMeta::new(),
 		};
-		let response = BunnyCDNGetResponse{
-			raw_data: http_get_response_content,
+		let get_response = BunnyCDNGetResponse{
+			body: http_get_response_content.to_string(),
+			headers: http_get_response_headers,
 			page_meta,
 		};
-		return Ok(response);
+		return Ok(get_response);
 	}
 
 	async fn put<T: Into<Body>>(&self, url: &str, access_key: &str, data: T, options: Option<&BunnyCDNDataOptions>) -> Result<(), Error> {
