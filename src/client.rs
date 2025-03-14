@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
-use reqwest::{header::HeaderMap, Body, StatusCode};
+use reqwest::{header::HeaderMap, Body};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{errors::Error, models::storageendpoint::StorageEndpoint};
+use crate::{environment::get_non_empty_string_from_env, errors::Error, models::storageendpoint::StorageEndpoint};
 
 pub mod statistics;
 pub mod regions;
 pub mod files;
 pub mod apikey;
+pub mod pullzones;
+pub mod storagezones;
 
 const BUNNY_STORAGE_API_ROOT: &str = "https://api.bunny.net";
 const ENV_BUNNY_STORAGE_API_KEY_NAME: &str = "BUNNYSTORAGE_API_KEY";
@@ -48,27 +50,6 @@ pub struct BunnyCDNClientConfig {
 	pub write_password: Option<String>,
 	pub endpoint: StorageEndpoint,
 	pub storage_zone_name: String,
-}
-
-fn get_string_from_env(env_key: &str) -> Result<String, Error> {
-	return std::env::var(env_key)
-		.map_err(|env_key_error| Error::new_from_message(&format!(
-			"Failed retrieving environment variable. Check {} in .env - Error {}",
-			env_key,
-			env_key_error.to_string())
-		));
-}
-
-fn get_non_empty_string_from_env(env_key: &str) -> Result<String, Error> {
-	let env_content = get_string_from_env(env_key)?;
-	let trimmed_env_content = env_content.trim();
-	if trimmed_env_content.is_empty() {
-		return Err(Error::new_from_message(&format!(
-			"Invalid environment content. Must not be empty. Check {}",
-			env_key
-		)));
-	}
-	return Ok(trimmed_env_content.to_string());
 }
 
 impl BunnyCDNClientConfig {
@@ -162,11 +143,14 @@ impl BunnyCDNPageMeta {
 	}
 }
 
-
 pub struct BunnyCDNGetResponse {
 	pub body: String,
 	pub headers: HeaderMap,
 	pub page_meta: BunnyCDNPageMeta
+}
+
+pub struct BunnyCDNPostResponse {
+	pub body: String,
 }
 
 pub struct BunnyCDNDataOptions {
@@ -230,15 +214,15 @@ impl BunnyCDNClient {
 			.error_for_status()
 			.map_err(|http_get_request_error| Error::new_from_message(&http_get_request_error.to_string()))?;
 
-		if http_get_response.status() != StatusCode::OK {
-			return Err(Error::new_from_message(&format!("Failed Get Request - Code {}", http_get_response.status())))
-		}
+		let http_get_ok = http_get_response.status().is_success();
 		let http_get_response_headers = std::mem::take(http_get_response.headers_mut());
 		let http_get_response_content = &http_get_response.text()
 			.await
 			.map_err(|http_get_content_error| Error::new_from_message(&http_get_content_error.to_string()))?;
 
-		self.attempt_parse_request_error(&http_get_response_content)?;
+		if !http_get_ok {
+			self.attempt_parse_request_error(&http_get_response_content)?;
+		}
 		// Attempt parse pagination. This is not present on all endpoints, but it is,
 		// for example, on https://api.bunny.net/apikey.
 		// This handles parsing the information, but it is up to the specific handler
@@ -254,6 +238,37 @@ impl BunnyCDNClient {
 			page_meta,
 		};
 		return Ok(get_response);
+	}
+
+	async fn post<T: Into<Body>>(&self, url: &str, access_key: &str, data: T, options: Option<&BunnyCDNDataOptions>) -> Result<BunnyCDNPostResponse, Error> {
+		let mut http_post_request = self.http_client.post(url)
+			.body(data);
+
+		if let Some(provided_options) = options {
+			if let Some(headers) = &provided_options.headers {
+				for (header_name, header_value) in headers.iter() {
+					http_post_request = http_post_request.header(header_name, header_value);
+				}
+			}
+		}
+		http_post_request = http_post_request.header(ACCESS_KEY_HEADER_NAME, access_key);
+		// Perform the Request
+		let http_post_response = http_post_request.send()
+			.await
+			.map_err(|http_post_response_error| Error::new_from_message(&http_post_response_error.to_string()))?;
+
+		let http_post_ok = http_post_response.status().is_success();
+		let http_post_response_content = http_post_response.text()
+			.await
+			.map_err(|http_post_content_error| Error::new_from_message(&http_post_content_error.to_string()))?;
+
+		if !http_post_ok {
+			self.attempt_parse_request_error(&http_post_response_content)?;
+		}
+		let post_response = BunnyCDNPostResponse{
+			body: http_post_response_content.to_string(),
+		};
+		return Ok(post_response);
 	}
 
 	async fn put<T: Into<Body>>(&self, url: &str, access_key: &str, data: T, options: Option<&BunnyCDNDataOptions>) -> Result<(), Error> {
@@ -272,15 +287,16 @@ impl BunnyCDNClient {
 		// Perform the Request
 		let http_put_response = http_put_request.send()
 			.await
-			.map_err(|http_put_response_error| Error::new_from_message(&http_put_response_error.to_string()))?
-			.error_for_status()
-			.map_err(|http_put_request_error| Error::new_from_message(&http_put_request_error.to_string()))?;
+			.map_err(|http_put_response_error| Error::new_from_message(&http_put_response_error.to_string()))?;
 
+		let http_put_ok = http_put_response.status().is_success();
 		let http_put_response_content = http_put_response.text()
 			.await
 			.map_err(|http_put_content_error| Error::new_from_message(&http_put_content_error.to_string()))?;
 		
-		self.attempt_parse_request_error(&http_put_response_content)?;
+		if !http_put_ok {
+			self.attempt_parse_request_error(&http_put_response_content)?;
+		}
 		return Ok(());
 	}
 

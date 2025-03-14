@@ -2,7 +2,6 @@ use crate::{errors::Error, models::region::Region};
 
 use super::{BunnyCDNClient, BUNNY_STORAGE_API_ROOT};
 
-
 impl BunnyCDNClient {
 
 	pub async fn get_regions(&self) -> Result<Vec<Region>, Error> {
@@ -12,8 +11,10 @@ impl BunnyCDNClient {
 			&self.config.api_key, 
 			None
 		).await?;
-		return serde_json::from_str(&regions_response.body)
-			.map_err(|parse_error| Error::new_from_message(&parse_error.to_string()));
+		let regions: Vec<Region> = serde_json::from_str(&regions_response.body)
+			.map_err(|parse_error| Error::new_from_message(&parse_error.to_string()))?;
+
+		return Ok(regions);
 	}
 }
 

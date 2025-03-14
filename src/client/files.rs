@@ -344,8 +344,8 @@ impl BunnyCDNClient {
 	/// 
 	/// # Examples
 	/// ```
-	/// let downfile_file_result: Result<(), Error> = download_file(my_remote_filepath, my_local_filepath)
 	/// ```
+	/// let downfile_file_result: Result<(), Error> = download_file(my_remote_filepath, my_local_filepath);
 	pub async fn download_file(&self, remote_filepath: &str, local_filepath: &str) -> Result<(), Error> {
 		let used_local_filepath: String = self.evaluate_local_target_filepath(remote_filepath, Some(local_filepath))?;
 		let mut local_file = fs::File::create(&used_local_filepath)
@@ -374,7 +374,7 @@ impl BunnyCDNClient {
 }
 
 #[cfg(test)]
-mod files_test {
+mod files_tests {
 	use super::*;
 
 	#[tokio::test]

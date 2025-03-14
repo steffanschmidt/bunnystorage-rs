@@ -26,7 +26,7 @@ impl BunnyCDNClient {
 }
 
 #[cfg(test)]
-mod api_keys_test {
+mod api_keys_tests {
 	use super::*;
 
 	#[tokio::test] 

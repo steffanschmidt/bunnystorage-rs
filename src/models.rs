@@ -12,9 +12,13 @@ pub mod edgerule;
 pub mod trigger;
 pub mod storageendpoint;
 pub mod file;
+pub mod optimizerclass;
+pub mod bunnyaiimageblueprint;
+pub mod storagezonestatistics;
 
 const YYYYMMDDHHMMSS: &str = "%Y-%m-%d%H:%M:%S";
 const YYYYMMDDHHMMSS_MILLI: &str = "%Y-%m-%d%H:%M:%S.%f";
+const YYYYMMDDHHMMSS_MILLI_Z: &str = "%Y-%m-%d%H:%M:%S.%fZ";
 const YYYYMMDDHHMMSS_WEB: &str = "%Y-%m-%dT%H:%M:%S";
 const YYYYMMDDHHMMSS_MILLI_WEB: &str = "%Y-%m-%dT%H:%M:%S.%f";
 
@@ -39,7 +43,6 @@ pub fn deserialize_datetime<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D:
 	if let Ok(web_datetime_milli) = web_datetime_milli_result {
 		return Ok(web_datetime_milli.and_utc());
 	}
-	println!("{:?}", web_datetime_milli_result);
 	let datetime_result = NaiveDateTime::parse_from_str(&datetime_str, YYYYMMDDHHMMSS);
 	if let Ok(datetime) = datetime_result {
 		return Ok(datetime.and_utc());
@@ -48,7 +51,10 @@ pub fn deserialize_datetime<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D:
 	if let Ok(datetime_milli) = datetime_milli_result {
 		return Ok(datetime_milli.and_utc());
 	}
-	println!("{}", datetime_str);
+	let datetime_utc_result = NaiveDateTime::parse_from_str(&datetime_str, YYYYMMDDHHMMSS_MILLI_Z);
+	if let Ok(datetime_utc) = datetime_utc_result {
+		return Ok(datetime_utc.and_utc());
+	}
 	let rfc3339_datetime = DateTime::parse_from_rfc3339(&datetime_str)
 		.map_err(serde::de::Error::custom)?;
 

@@ -27,7 +27,7 @@ impl Display for Error {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let mut displayed_error_message_buffer: Vec<String> = Vec::new();
 		if !self.error_key.is_empty() {
-			displayed_error_message_buffer.push(format!("Key: {}, ", self.error_key));
+			displayed_error_message_buffer.push(format!("Key: {}", self.error_key));
 		}
 		if !self.field.is_empty() {
 			displayed_error_message_buffer.push(format!("Field: {}", self.field));

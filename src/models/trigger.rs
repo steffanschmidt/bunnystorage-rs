@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TriggerType {
 	Url,
 	RequestHeader,
@@ -24,7 +24,7 @@ impl Default for TriggerType {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TriggerPatternMatchingType {
 	MatchAny,
 	MatchAll,
@@ -37,17 +37,17 @@ impl Default for TriggerPatternMatchingType {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TriggerMatchingType {
 	MatchAny,
 	MatchAll,
 	MatchNone,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct Trigger {
-	#[serde(rename = "type")]
+	#[serde(alias = "type")]
 	pub trigger_type: TriggerType,
 	// The list of pattern matches that will trigger the edge rule
 	pub pattern_matches: Vec<String>,

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::trigger::{Trigger, TriggerMatchingType};
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EdgeRuleActionType {
 	ForceSSL,
 	Redirect,
@@ -38,7 +38,7 @@ impl Default for EdgeRuleActionType {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all(serialize = "camelCase", deserialize = "PascalCase"))]
 pub struct EdgeRule {
 	// The unique GUID of the edge rule
